@@ -3,39 +3,34 @@
 
 #include <stdlib.h>
 #include <math.h>
+#include <signal.h>
 
-ChildProcess * array;
-int array_len;
-ChildProcess * idle_head;
-ChildProcess * idle_tail;
-
-fd_set * rset, masterset;
-int maxfd, navail, nsel, connfd, rc;
+pid_t * pids;
+int pid_len;
+int idle_num;
 
 static pid_t child_make(int i, int listenfd, int addrlen);
 static void child_main(int i, int listenfd, int addrlen);
+static void sig_int(int signo);
 
 void create_childpool(int num, int listenfd, int addrlen) {
   int i;
-  array_len= num;
-  array = (ChildProcess *)(malloc(sizeof(ChildProcess) * num));
-  idle_head = 0;
-  idle_tail = 0;
+  pid_len = num;
+  idle_num = num;
 
-  FD_ZERO(&masterset);
-  FD_SET(listenfd, &masterset);
-  maxfd = listenfd;
+  pids = (pid_t *)(malloc(sizeof(pid_t) * num));
 
   for (i = 0; i < num; i++) {
-    child_make(i, listenfd, addrlen);
-    FD_SET(array[i].child_pipefd, &masterset);
-    maxfd = max(maxfd, array[i].child_pipefd);
+    pids[i] = child_make(i, listenfd, addrlen);
   } 
-
+  signal_wrapper(SIGINT, sig_int);
+  while(true) {
+    pause();
+  }
 }
 
 void free_childpool() {
-  free(array);
+  free(pids);
 }
 
 
@@ -44,44 +39,35 @@ void free_childpool() {
  * Static methods
  * */
 static pid_t child_make(int i, int listenfd, int addrlen) {
-  int sockfd[2];
   pid_t pid;
-
-  socketpair_wrapper(AF_LOCAL, SOCK_STREAM, 0, sockfd);
-
-  if ((pid = fork_wrapper()) > 0) {
-    close(sockfd[1]);
-    array[i].child_pid = pid;
-    array[i].child_pipefd = sockfd[0];
-    array[i].child_status = 0;
-    array[i].next = 0;
-    if (idle_head == 0) {
-      idle_head = &array[i];
-      idle_tail = &array[i];
-    } else {
-      idle_tail->next = &array[i];
-      idle_tail = &array[i];
-    } 
+  
+  if ((pid = fork_wrapper()) > 0)
     return pid;
-  }
-  dup2_wrapper(sockfd[1], STDERR_FILENO);
-  close(sockfd[0]);
-  close(sockfd[1]);
-  close(listenfd);
-  child_main(i, listenfd, addrlen); 
+  child_main(i, listenfd, addrlen);
   return 0;
 }
 
 static void child_main(int i, int listenfd, int addrlen) {
-  char c;
   int connfd;
-  ssize_t n;
+  socklen_t clilen;
+  struct socketaddr * cliaddr;
+
+  cliaddr = (struct socketaddr *)(malloc(addrlen)); 
+
   fprintf(stdout, "sub p %ld startling\n", (long)getpid());
   while(true) {
-    if ( (n = Read_fd(STDERR_FILENO, &c, 1, &connfd)) == 0)
-      perror("error");
-    if (connfd < 0)
-      perror("error");
+    clilen = addrlen;
+    connfd = accept(listenfd, cliaddr, &clilen);
+    fprintf(stdout, "\n %ld is running \n", (long)getpid());
     close(connfd);
   }
+}
+
+static void sig_int(int signo) {
+  int i;
+  for (i = 0; i < idle_num; i++) {
+    kill(pids[i], SIGTERM);
+  }
+  while (wait(NULL) > 0);
+  exit(0); 
 }
