@@ -13,7 +13,6 @@
 #define SERVER_STRING "Server: Tiny-server-reasond"
 
 
-static int get_line(int sock, char * buf, int size);
 static void headers(int client);
 static void not_found(int client);
 static void unimplemented(int client);
@@ -31,7 +30,6 @@ void handle_request(int fd) {
     return;
 
   sprintf(path, "htdocs%s", request->url);
-  fprintf(stderr, "%s\n", path);
   if (path[strlen(path) - 1] == '/')
     strcat(path, "index.html");
   if (stat(path, &st) == -1) {
@@ -44,108 +42,78 @@ void handle_request(int fd) {
   free(request);
 }
 
-
-int get_line(int sock, char* buf, int size) {
-  int i = 0;
-  char c = '\0';
-  int n;
-#ifdef DEBUG
-  //fprintf(stderr, "%s", buf);
-#endif
-  while((i < size - 1) && (c != '\n')) {
-    n = recv(sock, &c, 1, 0); 
-    if (n > 0) {
-      if (c == '\r') {
-        n = recv(sock, &c, 1, MSG_PEEK);
-        if ((n > 0) && (c == '\n'))
-          recv(sock, &c, 1, 0); 
-        else
-          c = '\n';
-      }   
-      buf[i] = c;
-      i++;
-    } else
-      c = '\n';
-  }
-  buf[i] = '\0';
-  return i;
-}
-
 void headers(int client) {
-  char buf[1024];
-
-  strcpy(buf, "HTTP/1.1 200 OK\r\n");
-  send(client, buf, strlen(buf), 0);
-  strcpy(buf, SERVER_STRING);
-  send(client, buf, strlen(buf), 0);
-  sprintf(buf, "Content-Type: text/html\r\n");
-  send(client, buf, strlen(buf), 0);
-  strcpy(buf, "\r\n");
-  send(client, buf, strlen(buf), 0);
+  fputs("HTTP/1.1 200 OK\r\n", stdout);
+  fputs(SERVER_STRING, stdout);
+  fputs("Content-Type: text/html\r\n", stdout);
+  fputs("\r\n", stdout);
 }
 
 void not_found(int client) {
-  char buf[1024];
-
-  sprintf(buf, "HTTP/1.1 404 NOT FOUND\r\n");
-  send(client, buf, strlen(buf), 0);
-  sprintf(buf, SERVER_STRING);
-  send(client, buf, strlen(buf), 0);
-  sprintf(buf, "Content-Type: text/html\r\n");
-  send(client, buf, strlen(buf), 0);
-  sprintf(buf, "\r\n");
-  send(client, buf, strlen(buf), 0);
-  sprintf(buf, "<html><head><title>NOT FOUND</title></head>\r\n");
-  send(client, buf, strlen(buf), 0);
-  sprintf(buf, "<body><p>The server could not fulfill\r\n");
-  send(client, buf, strlen(buf), 0);
-  sprintf(buf, "your request because the resource specified\r\n");
-  send(client, buf, strlen(buf), 0);
-  sprintf(buf, "is unavailable or nonexistent</p></body></html>\r\n");
-
-  send(client, buf, strlen(buf), 0);
+  fputs("HTTP/1.1 404 NOT FOUND\r\n", stdout);
+  fputs(SERVER_STRING, stdout);
+  fputs("Content-Type: text/html\r\n\r\n", stdout);
+  fputs("<html><head><title>NOT FOUND</title></head>\r\n", stdout);
+  fputs("<body><p>The server could not fulfill\r\n", stdout);
+  fputs("your request because the resource specified\r\n", stdout);
+  fputs("is unavailable or nonexistent</p></body></html>\r\n", stdout);
 }
 
 void unimplemented(int client) {
-  char buf[1024];
-
-  sprintf(buf, "HTTP/1.1 501 Method Not Implemented\r\n");
-  send(client, buf, sizeof(buf), 0);
-  sprintf(buf, SERVER_STRING);
-  send(client, buf, sizeof(buf), 0);
-  sprintf(buf, "Content-Type: text/html\r\n");
-  send(client, buf, sizeof(buf), 0);
-  sprintf(buf, "\r\n");
-  send(client, buf, sizeof(buf), 0);
-  sprintf(buf, "<html><head><title>Method Not Implemented\r\n");
-  send(client, buf, sizeof(buf), 0);
-  sprintf(buf, "</title></head>\r\n");
-  send(client, buf, sizeof(buf), 0);
-  sprintf(buf, "<body><p>HTTP request method not supported.\r\n");
-  send(client, buf, sizeof(buf), 0);
-  sprintf(buf, "</body></html>\r\n");
-  send(client, buf, sizeof(buf), 0);
+  fputs("HTTP/1.1 501 Method Not Implemented\r\n", stdout);
+  fputs(SERVER_STRING, stdout);
+  fputs("Content-Type: text/html\r\n\r\n", stdout);
+  fputs("<html><head><title>Method Not Implemented\r\n", stdout);
+  fputs("</title></head>\r\n", stdout);
+  fputs("<body><p>HTTP request method not supported.\r\n", stdout);
+  fputs("</body></html>\r\n", stdout);
 }
 
 
 static Request * parse_request(int fd) {
-  char buf[1024];
+  char buf[128];
+  int i;
 
   Request * request = (Request *)(malloc(sizeof(Request)));
   request->query_string = 0;
 
-  size_t i, j;
-  int numchars;
-  numchars = get_line(fd, buf, sizeof(buf));
+  fscanf(stdin, "%s", request->method);
+  fscanf(stdin, "%s", request->url);
+  fscanf(stdin, "%s", request->protocol);
+  fscanf(stdin, "%s", buf);
+  fscanf(stdin, "%s", request->host);
+  fscanf(stdin, "%s", buf);
+  fscanf(stdin, "%s", request->connection);
+  fscanf(stdin, "%s", buf);
+  fscanf(stdin, "%s", request->accept);
+  fscanf(stdin, "%s", buf);
+  fscanf(stdin, "%[^\r]", request->agent);
+  fscanf(stdin, "%s", buf);
+  fscanf(stdin, "%s", request->encoding);
+  
 
-  i = 0;
-  j = 0;
-  while  (!isspace(buf[j]) && (i < sizeof(request->method) -1)) {
-    request->method[i] = buf[j];
-    i++;
-    j++;
+#ifdef DEBUG
+  fprintf(stderr, "method: %s\n", request->method);
+  fprintf(stderr, "url: %s\n", request->url);
+  fprintf(stderr, "protocol: %s\n", request->protocol);
+  fprintf(stderr, "host: %s\n", request->host);
+  fprintf(stderr, "connection: %s\n", request->connection);
+  fprintf(stderr, "accept: %s\n", request->accept);
+  fprintf(stderr, "agent: %s\n", request->agent);
+  fprintf(stderr, "encoding: %s\n", request->encoding);
+  if (request->query_string) {
+    fprintf(stderr, "query_string: %s\n", request->query_string);
   }
-  request->method[i] = '\0';
+#endif
+  
+  i = 0; 
+  int len = strlen(request->url);
+  while ((i < len) && (request->url[i] != '?' ))
+    i++;
+  if (i != len) {
+    request->url[i] = '\0';
+    request->query_string = &request->url[i+1];
+  }
 
   if (STRCASE_NOT_EQUAL(request->method, "GET")) {
 #ifdef DEBUG
@@ -155,30 +123,6 @@ static Request * parse_request(int fd) {
     return NULL;
   }
 
-  i = 0;
-  while (isspace(buf[j]) && (j < sizeof(buf)))
-    j++;
-  while (!isspace(buf[j]) && (i < sizeof(request->url) - 1) && (j < sizeof(buf))) {
-    request->url[i] = buf[j];
-    if (buf[j] == '?') {
-      request->url[i] = '\0';
-      request->query_string = &request->url[i+1];
-    }
-    i++;
-    j++;
-  }
-  request->url[i] = '\0';
-
-#ifdef DEBUG
-  fprintf(stderr, "method: %s\n", request->method);
-  fprintf(stderr, "url: %s\n", request->url);
-  if (request->query_string) {
-    fprintf(stderr, "query_string: %s\n", request->query_string);
-  }
-#endif
-  while ((numchars > 0) && STR_NOT_EQUAL("\n", buf)) {
-    numchars = get_line(fd, buf, sizeof(buf));
-  }
   return request;
 }
 
@@ -199,7 +143,7 @@ void cat(int client, FILE * resource) {
   char buf[1024];
   fgets(buf, sizeof(buf), resource);
   while (!feof(resource)) {
-    send(client, buf, strlen(buf), 0);
+    fputs(buf, stdout);
     fgets(buf,sizeof(buf), resource);
   }
 }

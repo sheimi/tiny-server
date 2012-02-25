@@ -62,17 +62,24 @@ static void child_main(int i, int listenfd, int addrlen) {
   cliaddr = (struct socketaddr *)(malloc(addrlen)); 
 
   fprintf(stderr, "sub p %ld startling\n", (long)getpid());
+    close(0);
+    close(1);
   while(true) {
     clilen = addrlen;
     connfd = accept(listenfd, cliaddr, &clilen);
 #ifdef DEBUG
     fprintf(stderr, "\n %ld is running \n", (long)getpid());
 #endif
+    dup2(connfd, STDOUT_FILENO) != STDOUT_FILENO; 
+    dup2(connfd, STDIN_FILENO) != STDIN_FILENO; 
     handle_request(connfd);
+    fflush(stdout);
 #ifdef DEBUG
     fprintf(stderr, "\n %ld is finished\n", (long)getpid());
 #endif
     close(connfd);
+    close(0);
+    close(1);
   }
 }
 
