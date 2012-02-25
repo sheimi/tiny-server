@@ -1,5 +1,6 @@
 #include "child_pool.h"
 #include "wrappers.h"
+#include "handler.h"
 
 #include <stdlib.h>
 #include <math.h>
@@ -13,10 +14,16 @@ static pid_t child_make(int i, int listenfd, int addrlen);
 static void child_main(int i, int listenfd, int addrlen);
 static void sig_int(int signo);
 
-void create_childpool(int num, int listenfd, int addrlen) {
+void create_childpool(int argc, char * argv[]){
   int i;
+  int num = atoi(argv[3]);
   pid_len = num;
   idle_num = num;
+
+  socklen_t addrlen;
+  int listenfd;
+
+  listenfd = tcp_listen(argv[1], argv[2], &addrlen);
 
   pids = (pid_t *)(malloc(sizeof(pid_t) * num));
 
@@ -54,11 +61,17 @@ static void child_main(int i, int listenfd, int addrlen) {
 
   cliaddr = (struct socketaddr *)(malloc(addrlen)); 
 
-  fprintf(stdout, "sub p %ld startling\n", (long)getpid());
+  fprintf(stderr, "sub p %ld startling\n", (long)getpid());
   while(true) {
     clilen = addrlen;
     connfd = accept(listenfd, cliaddr, &clilen);
-    fprintf(stdout, "\n %ld is running \n", (long)getpid());
+#ifdef DEBUG
+    fprintf(stderr, "\n %ld is running \n", (long)getpid());
+#endif
+    handle_request(connfd);
+#ifdef DEBUG
+    fprintf(stderr, "\n %ld is finished\n", (long)getpid());
+#endif
     close(connfd);
   }
 }

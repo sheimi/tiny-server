@@ -2,7 +2,7 @@ CC=gcc
 SRC=src
 INC=include
 CFLAGS=-I$(INC) -Wall -c
-OBJS=server.o dispatcher.o child_pool.o wrappers.o
+OBJS=server.o dispatcher.o child_pool.o wrappers.o handler.o
 TARGET=server
 ifneq ($(DEBUG),)
 	CFLAGS += -g -DDEBUG 
@@ -20,6 +20,9 @@ dispatcher.o: $(SRC)/dispatcher.c
 	$(CC) $(CFLAGS) $<
 
 child_pool.o: $(SRC)/child_pool.c
+	$(CC) $(CFLAGS) $<
+
+handler.o: $(SRC)/handler.c
 	$(CC) $(CFLAGS) $<
 
 wrappers.o: $(SRC)/wrappers.c

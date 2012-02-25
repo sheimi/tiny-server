@@ -5,7 +5,7 @@
 
 #include "env.h"
 
-void create_childpool(int num, int listenfd, int addrlen);
+void create_childpool(int argc, char * argv[]);
 
 void free_childpool();
 
